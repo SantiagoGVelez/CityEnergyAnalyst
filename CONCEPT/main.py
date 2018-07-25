@@ -29,9 +29,9 @@ def main():
         print cost_type, cost_type.value
     print '\n'
 
-    # pf.plot_network_on_street(m)
+    pf.plot_network_on_street(m)
+    # pf.plot_network(m)
     # pf.plot_complete(m)
-    pf.plot_network(m)
 
 
 if __name__ == '__main__':

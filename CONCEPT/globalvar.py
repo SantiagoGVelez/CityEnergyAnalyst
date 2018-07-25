@@ -5,6 +5,7 @@ Global variables - this object contains context information and is expected to b
 # Economics data
 INTEREST_RATE = 0.05  # 5% interest rate
 ELECTRICITY_COST = 0.23  # SGD per kWh
+THERMAL_COST = 0.04  # SGD per kWh
 
 # Technical Data
 V_BASE = 22.0  # in kV
