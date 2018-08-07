@@ -531,6 +531,10 @@ class InputLocator(object):
         """db/Systems/thermal_networks.xls"""
         return self._get_region_specific_db_file(region, 'systems', 'thermal_networks.xls')
 
+    def get_electrical_networks(self, region):
+        """db/Systems/electrical_networks.xls"""
+        return self._get_region_specific_db_file(region, 'systems', 'electrical_networks.xls')
+
     def get_data_benchmark(self, region):
         """Returns the database of life cycle inventory for supply systems. These are copied
         to the scenario if they are not yet present, based on the configured region for the scenario."""

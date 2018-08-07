@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from pyomo.environ import *
 from config import *
+from cea.demand import sensible_loads, electrical_loads, hotwater_loads, refrigeration_loads, datacenter_loads
 
 
 # ============================
@@ -193,6 +194,8 @@ def main():
     # ===========================================
     # Initialize Data
     # ===========================================
+
+
 
     # Street network and Buildings
     points_on_line, tranches, dict_length, dict_path = initial_network()

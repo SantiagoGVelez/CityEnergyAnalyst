@@ -1,9 +1,8 @@
 import pyomo_multi_linetype
-
 import plot_functions as pf
 from pyomo.environ import *
 import time
-from config import *
+from config_concept import *
 
 
 def main():
