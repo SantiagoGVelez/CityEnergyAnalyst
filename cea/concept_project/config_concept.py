@@ -1,12 +1,24 @@
 import os
 import data.datalocator
+import cea.config
+import cea.inputlocator
+import os
+
+"""
+=================
+CEA
+=================
+"""
+config = cea.config.Configuration()
+assert os.path.exists(config.scenario), 'Scenario not found: %s' % config.scenario
+locator_cea = cea.inputlocator.InputLocator(scenario=config.scenario)
+
 
 """
 =================
 Config Variables
 =================
 """
-
 LOCATOR = data.datalocator.get_data_path()
 
 SCENARIO = '\\reference-case-WTP-reduced\\WTP_MIX_m\\'

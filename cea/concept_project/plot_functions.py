@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from config import *
+from config_concept import *
 import get_initial_network as gia
 import re
 

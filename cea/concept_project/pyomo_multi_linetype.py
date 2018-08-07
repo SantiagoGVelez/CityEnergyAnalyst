@@ -4,9 +4,7 @@ import get_initial_network as gia
 import pandas as pd
 import numpy as np
 from pyomo.environ import *
-from config import *
-from cea.demand import sensible_loads, electrical_loads, hotwater_loads, refrigeration_loads, datacenter_loads
-
+from config_concept import *
 
 # ============================
 # Auxiliary functions for LP
@@ -44,7 +42,7 @@ def cost_rule(m, cost_type):
         for (i, j) in m.set_edge:
             for t in m.set_linetypes:
                 c_inv_electric += 2.0 * (m.var_x[i, j, t] * m.dict_length[i, j]) \
-                         * m.dict_line_tech[t]['price_sgd_per_m'] * m.dict_line_tech[t]['annuity_factor']
+                         * m.dict_line_tech[t]['SGD_per_m'] * m.dict_line_tech[t]['annuity_factor']
         return m.var_costs['inv_electric'] == c_inv_electric
 
     elif cost_type == 'inv_thermal':
@@ -195,19 +193,22 @@ def main():
     # Initialize Data
     # ===========================================
 
-
-
     # Street network and Buildings
     points_on_line, tranches, dict_length, dict_path = initial_network()
-    df_nodes = pd.DataFrame(points_on_line).drop(['geometry', 'Building', 'Name'], axis=1)
-    del points_on_line
+    df_nodes = pd.DataFrame(points_on_line)
 
     # Tranches
     dict_tranches = dict(tranches.T)
 
-    # Line Parameters
-    df_line_parameter = pd.read_csv('lines.csv')
-    dict_line_tech_params = dict(df_line_parameter.T)  # dict transposed dataframe
+    # Line Tech Parameters and Cost Catalog from EXECEL Sheets
+    df_line_catalog = pd.read_excel(locator_cea.get_electrical_networks(config.region),
+                                    sheetname=['LINE CATALOG'])['LINE CATALOG']
+    # Line
+    df_lines_cost_data = pd.read_excel(locator_cea.get_supply_systems(config.region),
+                                    sheetname=['Lines'])['Lines']
+
+    df_lines_catalog_full = pd.concat([df_line_catalog, df_lines_cost_data], axis=1)
+    dict_line_tech_params = dict(df_lines_catalog_full.T)  # dict transposed dataframe
 
     # annuity factor (years, interest)
     for idx_type in dict_line_tech_params:

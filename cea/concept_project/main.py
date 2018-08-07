@@ -1,6 +1,6 @@
 import pyomo_multi_linetype
 import plot_functions as pf
-from pyomo.environ import *
+from pyomo.environ import SolverFactory
 import time
 from config_concept import *
 
