@@ -178,6 +178,7 @@ def one_linetype_rule(m, i, j):
     return number_of_linetypes <= 1
 
 
+# TODO keep or delete?
 def pipe_on_line_rule(m, i):
     node_adjacent = 0
 
@@ -340,8 +341,7 @@ def main():
     # Declare constraint functions
     m.power_balance_rule_constraint = Constraint(m.set_nodes, rule=power_balance_rule)
     m.power_over_line_constraint = Constraint(m.set_edge, m.set_linetypes, rule=power_over_line_rule)
-    m.slack_voltage_angle_constraint = Constraint(m.set_nodes_sub,
-                                                  rule=slack_voltage_angle_rule)  # Voltage angle of slack has to be zero
+    m.slack_voltage_angle_constraint = Constraint(m.set_nodes_sub, rule=slack_voltage_angle_rule)
 
     m.slack_neg_constraint = Constraint(m.set_edge, m.set_linetypes, rule=slack_neg_rule)
     m.slack_pos_constraint = Constraint(m.set_edge, m.set_linetypes, rule=slack_pos_rule)

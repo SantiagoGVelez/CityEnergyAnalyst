@@ -9,8 +9,8 @@ Config Variables
 
 LOCATOR = data.datalocator.get_data_path()
 
-# SCENARIO = '\\reference-case-WTP-reduced\\WTP_MIX_m\\'
-SCENARIO = '\\reference-case-WTP\\MIX_high_density\\'
+SCENARIO = '\\reference-case-WTP-reduced\\WTP_MIX_m\\'
+# SCENARIO = '\\reference-case-WTP\\MIX_high_density\\'
 
 if os.name == 'nt':  # Windows
     THREADS = 0
