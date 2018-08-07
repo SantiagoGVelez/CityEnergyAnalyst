@@ -11,9 +11,8 @@ def main():
     # Solve Problem
     # ============================
 
-    # m = pyomo_single_linetype.main()
     m = pyomo_multi_linetype.main()
-    opt = SolverFactory('gurobi',
+    opt = SolverFactory('cplex',
                         # executable='/opt/ibm/ILOG/CPLEX_Studio1271/cplex/bin/x86-64_linux/cplex' # LINUX
                         )  # Create a solver
     opt.options['threads'] = THREADS

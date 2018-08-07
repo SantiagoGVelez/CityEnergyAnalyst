@@ -5,10 +5,9 @@ import re
 
 
 def initial_network():
-    locater = LOCATOR
-    gia.calc_substation_location(locater)
-    points_on_line, tranches = gia.connect_building_to_grid(locater)
-    points_on_line_processed = gia.process_network(locater, points_on_line)
+    gia.calc_substation_location()
+    points_on_line, tranches = gia.connect_building_to_grid()
+    points_on_line_processed = gia.process_network(points_on_line)
     dict_length, dict_path = gia.create_length_dict(points_on_line_processed, tranches)
 
     return points_on_line_processed, tranches, dict_length, dict_path
@@ -27,8 +26,7 @@ def plot_complete(m):
     ax2.set_axis_off()
 
     # Plotting Buildings
-    locater = LOCATOR
-    building_points, building_poly = gia.calc_substation_location(locater)
+    building_points, building_poly = gia.calc_substation_location()
     building_poly.plot(ax=ax1, color='white', edgecolor='grey')
 
     for x in var_x:
@@ -82,8 +80,7 @@ def plot_network_on_street(m):
     ax2.set_axis_off()
 
     # Plotting Buildings
-    locater = LOCATOR
-    building_points, building_poly = gia.calc_substation_location(locater)
+    building_points, building_poly = gia.calc_substation_location()
     building_poly.plot(ax=ax1, color='white', edgecolor='grey')
 
     # Plotting Lines

@@ -1,24 +1,23 @@
 from __future__ import division
 import time
 import get_initial_network as gia
-from globalvar import *
 import pandas as pd
 import numpy as np
 from pyomo.environ import *
 from config import *
 
 
+# ============================
+# Auxiliary functions for LP
+# ============================
+
+
 def initial_network():
-    locater = LOCATOR
-    gia.calc_substation_location(locater)
-    points_on_line, tranches = gia.connect_building_to_grid(locater)
-    points_on_line_processed = gia.process_network(locater, points_on_line)
+    gia.calc_substation_location()
+    points_on_line, tranches = gia.connect_building_to_grid()
+    points_on_line_processed = gia.process_network(points_on_line)
     dict_length, dict_path = gia.create_length_dict(points_on_line_processed, tranches)
     return points_on_line_processed, tranches, dict_length, dict_path
-
-
-def length_init(m, i, j):
-    return m.dict_length[i][j]
 
 
 def annuity_factor(n, i):
@@ -34,15 +33,16 @@ def annuity_factor(n, i):
 
 
 # ============================
-# Rules for LP
+# Objective function for LP
 # ============================
+
 
 def cost_rule(m, cost_type):
     if cost_type == 'inv_electric':
         c_inv_electric = 0.0
         for (i, j) in m.set_edge:
             for t in m.set_linetypes:
-                c_inv_electric += 2.0 * (m.var_x[i, j, t] * m.param_line_length[i, j]) \
+                c_inv_electric += 2.0 * (m.var_x[i, j, t] * m.dict_length[i, j]) \
                          * m.dict_line_tech[t]['price_sgd_per_m'] * m.dict_line_tech[t]['annuity_factor']
         return m.var_costs['inv_electric'] == c_inv_electric
 
@@ -50,7 +50,7 @@ def cost_rule(m, cost_type):
         c_inv_thermal = 0.0
         for i in m.set_nodes:
             if i != 0:
-                c_inv_thermal += (m.var_connected[i] * m.param_line_length[0, i]) \
+                c_inv_thermal += (m.var_connected[i] * m.dict_length[0, i]) \
                          * m.dict_pipe_tech['price_sgd_per_m'] * m.dict_pipe_tech['annuity_factor']
         return m.var_costs['inv_thermal'] == c_inv_thermal
 
@@ -74,7 +74,7 @@ def cost_rule(m, cost_type):
         # c_om = 0.0
         # for (i, j) in m.set_edge:
         #     for t in m.set_linetypes:
-        #         c_om += 2 * (m.var_x[i, j, t] * m.param_line_length[i, j])\
+        #         c_om += 2 * (m.var_x[i, j, t] * m.dict_length[i, j])\
         #                 * m.dict_line_tech[t]['c_invest'] * m.dict_line_tech[t]['annuity_factor']\
         #                 * m.dict_line_tech[t]['om_factor']
 
@@ -89,7 +89,7 @@ def cost_rule(m, cost_type):
         for (i, j) in m.set_edge:
             for t in m.set_linetypes:
                 c_losses += (m.var_power_over_line[i, j, t] * I_BASE) ** 2 \
-                            * m.param_line_length[i, j] * (m.dict_line_tech[t]['r_ohm_per_km'] / 1000.0) \
+                            * m.dict_length[i, j] * (m.dict_line_tech[t]['r_ohm_per_km'] / 1000.0) \
                             * APPROX_LOSS_HOURS \
                             * (ELECTRICITY_COST * (10**(-3)))
 
@@ -101,6 +101,11 @@ def cost_rule(m, cost_type):
 
 def obj_rule(m):
     return sum(m.var_costs[cost_type] for cost_type in m.set_cost_type)
+
+
+# ============================
+# Constraint rules
+# ============================
 
 
 def power_balance_rule(m, i):
@@ -130,14 +135,14 @@ def power_balance_rule(m, i):
 def power_over_line_rule(m, i, j, t):
     power_over_line = ((
                         ((m.var_theta[i] - m.var_theta[j])*np.pi/180)  # rad to degree
-                        / (m.param_line_length[i, j] * m.dict_line_tech[t]['x_ohm_per_km'] / 1000)
+                        / (m.dict_length[i, j] * m.dict_line_tech[t]['x_ohm_per_km'] / 1000)
                         )
                        + m.var_slack[i, j, t])
     return m.var_power_over_line[i, j, t] == power_over_line
 
 
 def slack_voltage_angle_rule(m, i):
-    return m.var_theta[i] == 0.0
+    return m.var_theta[i] == 0.0   # Voltage angle of slack has to be zero
 
 
 def slack_pos_rule(m, i, j, t):
@@ -214,6 +219,7 @@ def main():
         # 'om_thermal',  # operation and maintenance cost for thermal network
         # 'losses',  # cost for power losses in lines
         ]
+
     # ===========================================
     # Scratched Pipeline Data
     # ===========================================
@@ -245,7 +251,7 @@ def main():
     # Preprocess data
     # ============================
 
-    # Power Demand
+    # Initialize Power Demand
     dict_energy_demand = {}
     dict_energy_demand['thermally_connected_electric_peak'] = {}
     dict_energy_demand['thermally_disconnected_electric_peak'] = {}
@@ -290,20 +296,19 @@ def main():
         #     dict_power_demand[idx_node] = (node['GRID0_kW']*10**3) \
         #                                   / (S_BASE*10**6)  # kW / MW
 
+    # Initialize Line Length
+    dict_length_processed = {}
+    for idx_node1, node1 in dict_length.iteritems():
+        for idx_node2, length in node1.iteritems():
+            dict_length_processed[idx_node1, idx_node2] = length
+
+
     # ============================
     # Model Problem
     # ============================
 
     m = ConcreteModel()
     m.name = 'CONCEPT - Electrical Network Opt'
-
-    # Direct convert
-    m.dict_length = dict_length.copy()
-    m.dict_energy_demand = dict_energy_demand.copy()
-    m.dict_line_tech = dict_line_tech_params.copy()
-    m.dict_pipe_tech = dict_pipe_tech_params.copy()
-    m.dict_tranches = dict_tranches.copy()
-    m.dict_path = dict_path.copy()
 
     # Create Sets
     m.set_nodes = Set(initialize=idx_nodes)
@@ -314,9 +319,13 @@ def main():
     m.set_linetypes = Set(initialize=idx_linetypes)
     m.set_cost_type = Set(initialize=cost_types)
 
-    # Create Parameters
-    # m.param_power_demand = Param(m.set_nodes, initialize=dict_power_demand)
-    m.param_line_length = Param(m.set_edge, initialize=length_init)
+    # Create Constants
+    m.dict_length = dict_length_processed.copy()
+    m.dict_energy_demand = dict_energy_demand.copy()
+    m.dict_line_tech = dict_line_tech_params.copy()
+    m.dict_pipe_tech = dict_pipe_tech_params.copy()
+    m.dict_tranches = dict_tranches.copy()
+    m.dict_path = dict_path.copy()
 
     # Create variables
     m.var_x = Var(m.set_edge, m.set_linetypes, within=Binary)  # decision variable for lines

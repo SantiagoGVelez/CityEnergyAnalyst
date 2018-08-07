@@ -7,10 +7,11 @@ import random
 import networkx as nx
 from config import *
 
-def calc_substation_location(locater):
+
+def calc_substation_location():
     #import/ export paths
-    input_buildings_shp = locater + 'inputs/building-geometry/zone.shp'
-    output_substations_shp = locater + 'inputs/networks/nodes_buildings.shp'
+    input_buildings_shp = LOCATOR + SCENARIO +'inputs\\building-geometry\\zone.shp'
+    output_substations_shp = LOCATOR + SCENARIO + 'inputs\\networks\\nodes_buildings.shp'
 
     poly = gdf.from_file(input_buildings_shp)
     poly = poly.to_crs("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
@@ -34,10 +35,10 @@ def calc_substation_location(locater):
     return points, poly
 
 
-def connect_building_to_grid(locater):
+def connect_building_to_grid():
     #import/ export paths
-    input_substations_shp = locater + 'inputs/networks/nodes_buildings.shp'
-    input_streets_shp = locater + 'inputs/networks/streets.shp'
+    input_substations_shp = LOCATOR + SCENARIO + 'inputs\\networks\\nodes_buildings.shp'
+    input_streets_shp = LOCATOR + SCENARIO + 'inputs\\networks\\streets.shp'
 
     # Import data
     building_points = gdf.from_file(input_substations_shp)
@@ -145,8 +146,8 @@ def connect_building_to_grid(locater):
     return points_on_line, tranches
 
 
-def process_network(locator, points_on_line):
-    building_path = locator + '/outputs//data/demand//Total_demand.csv'
+def process_network(points_on_line):
+    building_path = LOCATOR + SCENARIO + '\\outputs\\data\\demand\\Total_demand.csv'
     building_prop = pd.read_csv(building_path)
     # building_prop = building_prop[['Name', 'GRID0_kW']]
     building_prop.rename(columns={'Name': 'Building'}, inplace=True)
@@ -209,11 +210,9 @@ def create_length_dict(points_on_line, tranches):
 
 
 def main():
-    locater = LOCATOR
-
-    calc_substation_location(locater)
-    points_on_line, tranches = connect_building_to_grid(locater)
-    points_on_line_processed = process_network(locater, points_on_line)
+    calc_substation_location()
+    points_on_line, tranches = connect_building_to_grid()
+    points_on_line_processed = process_network(points_on_line)
     dict_length, dict_path = create_length_dict(points_on_line_processed, tranches)
 
 
