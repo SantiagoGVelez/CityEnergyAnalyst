@@ -28,6 +28,7 @@ __maintainer__ = "Daren Thomas"
 __email__ = "cea@arch.ethz.ch"
 __status__ = "Production"
 
+PRINT_RAW_RADIATION_DATA = True
 
 def calc_PV(locator, config, radiation_path, metadata_csv, latitude, longitude, weather_path, building_name):
     """
@@ -70,8 +71,12 @@ def calc_PV(locator, config, radiation_path, metadata_csv, latitude, longitude, 
     print('gathering properties of PV panel')
 
     # select sensor point with sufficient solar radiation
-    max_annual_radiation, annual_radiation_threshold, sensors_rad_clean, sensors_metadata_clean = \
+    max_annual_radiation, annual_radiation_threshold, sensors_rad_clean, sensors_metadata_clean, sensors_rad_raw = \
         solar_equations.filter_low_potential(radiation_path, metadata_csv, config)
+
+    if PRINT_RAW_RADIATION_DATA == True:
+        sensors_rad_raw.to_csv(locator.get_solar_radiation_raw_file(building_name=building_name), index=True,
+                         float_format='%.2f')
 
     print('filtering low potential sensor points done')
 

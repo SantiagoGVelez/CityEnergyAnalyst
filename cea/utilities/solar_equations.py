@@ -253,10 +253,10 @@ def filter_low_potential(radiation_json_path, metadata_csv_path, config):
     annual_radiation_threshold_Whperm2 = float(config.solar.annual_radiation_threshold)*1000
     sensors_metadata_clean = sensors_metadata[sensors_metadata.total_rad_Whm2 >= annual_radiation_threshold_Whperm2]
     sensors_rad_clean = sensors_rad[sensors_metadata_clean.index.tolist()]  # keep sensors above min radiation
-
+    sensors_rad_raw = sensors_rad_clean.copy()
     sensors_rad_clean[sensors_rad_clean[:] <= 50] = 0  # eliminate points when hourly production < 50 W/m2
 
-    return max_annual_radiation, annual_radiation_threshold_Whperm2, sensors_rad_clean, sensors_metadata_clean
+    return max_annual_radiation, annual_radiation_threshold_Whperm2, sensors_rad_clean, sensors_metadata_clean, sensors_rad_raw
 
 
 # optimal tilt angle and spacing of solar panels
