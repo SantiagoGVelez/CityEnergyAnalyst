@@ -181,15 +181,23 @@ Thermal networks:
   description: Create a potential layout of the network with the minimum spanning tree
   interfaces: [cli, dashboard]
   module: cea.technologies.thermal_network.network_layout.main
-  parameters: ['general:scenario', network-layout]
+  parameters: ['general:scenario', network-layout, 'thermal-network:disconnected-buildings']
 
 - name: thermal-network
   label: Thermo-hydraulic network (branched)
   description: Solve the thermal hydraulic network
   interfaces: [cli, dashboard]
-  module: cea.technologies.thermal_network.thermal_network_matrix
+  module: cea.technologies.thermal_network.thermal_network
   parameters: ['general:scenario', 'general:region', 'general:weather', 'general:multiprocessing',
-               'general:number-of-cpus-to-keep-free', 'thermal-network']
+               'general:number-of-cpus-to-keep-free', 'thermal-network', 'thermal-network-optimization:use-representative-week-per-month']
+
+- name: thermal-network-costs
+  label: Thermo network costs
+  description: Calculate the costs of the thermal network (like CAPEX, OPEX)
+  interfaces: [cli, dashboard]
+  module: cea.technologies.thermal_network.thermal_network_costs
+  parameters: ['general:scenario', 'general:region', 'general:weather', 'general:multiprocessing',
+                 'general:number-of-cpus-to-keep-free', 'thermal-network', 'thermal-network-optimization:use-representative-week-per-month', 'thermal-network-optimization:network-name']
 
 - name: thermal-network-optimization
   label: Thermo network optimization
