@@ -17,7 +17,8 @@ __status__ = "Production"
 with open('README.rst', 'r') as f:
     LONG_DESCRIPTION = f.read()
 
-INSTALL_REQUIRES = ['setuptools', 'doit==0.29.0', 'pyliburo>=0.1a8']
+INSTALL_REQUIRES = ['setuptools', 'doit', 'py4design', 'requests', 'xlrd', 'utm', 'pyyaml', 'sphinx', 'twine',
+                    'ipython', 'pymc3', 'seaborn', 'SALib', 'xlwt', 'jupyter', 'plotly', 'mock', 'pysal']
 
 # For building the documentation on readthedocs, exclude some of the packages, as they create build errors...
 if os.environ.get('READTHEDOCS') == 'True':
@@ -35,13 +36,9 @@ setup(name='cityenergyanalyst',
       py_modules=[''],
       packages=find_packages(),
       package_data={},
-      dependency_links=['https://github.com/architecture-building-systems/pyliburo/tarball/master#egg=pyliburo-0.1a8'],
       install_requires=INSTALL_REQUIRES,
       include_package_data=True,
       entry_points={
           'console_scripts': ['cea=cea.interfaces.cli.cli:main', 'cea-config=cea.interfaces.cli.cea_config:main'],
       },
-      extras_require={
-          'dev': ['sphinx', 'twine', 'ipython']
-      }
       )

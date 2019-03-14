@@ -19,15 +19,24 @@ Subpackages
     cea.plots.optimization
     cea.plots.solar_potential
     cea.plots.solar_technology_potentials
+    cea.plots.supply_system
     cea.plots.thermal_networks
 
 Submodules
 ----------
 
-cea.plots.heatmaps module
--------------------------
+cea.plots.base module
+---------------------
 
-.. automodule:: cea.plots.heatmaps
+.. automodule:: cea.plots.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+cea.plots.categories module
+---------------------------
+
+.. automodule:: cea.plots.categories
     :members:
     :undoc-members:
     :show-inheritance:

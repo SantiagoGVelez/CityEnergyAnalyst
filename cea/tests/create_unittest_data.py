@@ -29,8 +29,6 @@ def main(output_file):
 
     locator = InputLocator(reference_case)
     config = cea.config.Configuration(cea.config.DEFAULT_CONFIG)
-    gv = GlobalVariables()
-    gv.config = config
 
     weather_path = locator.get_weather('Zug')
     weather_data = epwreader.epw_reader(weather_path)[
@@ -50,15 +48,18 @@ def main(output_file):
     format_output = config.demand.format_output
     use_dynamic_infiltration_calculation =  config.demand.use_dynamic_infiltration_calculation
     use_stochastic_occupancy = config.demand.use_stochastic_occupancy
-    building_properties, schedules_dict, date = properties_and_schedule(gv, locator, region, year, use_daysim_radiation)
+    write_detailed_output = config.demand.write_detailed_output
+    debug = config.debug
+    building_properties, schedules_dict, date = properties_and_schedule(locator, region, year, use_daysim_radiation)
 
     print("data for test_calc_thermal_loads:")
     print(building_properties.list_building_names())
 
     bpr = building_properties['B01']
-    result = calc_thermal_loads('B01', bpr, weather_data, schedules_dict, date, gv, locator, use_stochastic_occupancy,
+    result = calc_thermal_loads('B01', bpr, weather_data, schedules_dict, date, locator, use_stochastic_occupancy,
                                 use_dynamic_infiltration_calculation, resolution_outputs, loads_output,
-                                massflows_output, temperatures_output, format_output, region)
+                                massflows_output, temperatures_output, format_output, config, region, write_detailed_output,
+                                debug)
 
     # test the building csv file
     df = pd.read_csv(locator.get_demand_results_file('B01'))
@@ -88,10 +89,13 @@ def main(output_file):
     results = {}
     for building in buildings:
         bpr = building_properties[building]
-        b, qhs_sys_kwh, qcs_sys_kwh, qww_sys_kwh = run_for_single_building(building, bpr, weather_data, schedules_dict, date, gv, locator,
-                                                      use_stochastic_occupancy, use_dynamic_infiltration_calculation,
-                                                      resolution_outputs, loads_output, massflows_output,
-                                                      temperatures_output, format_output, region)
+        b, qhs_sys_kwh, qcs_sys_kwh, qww_sys_kwh = run_for_single_building(building, bpr, weather_data, schedules_dict,
+                                                                           date, locator, use_stochastic_occupancy,
+                                                                           use_dynamic_infiltration_calculation,
+                                                                           resolution_outputs, loads_output,
+                                                                           massflows_output, temperatures_output,
+                                                                           format_output, config, region, write_detailed_output,
+                                                                           debug)
         print("'%(b)s': (%(qhs_sys_kwh).5f, %(qcs_sys_kwh).5f, %(qww_sys_kwh).5f)," % locals())
         results[building] = (qhs_sys_kwh, qcs_sys_kwh, qww_sys_kwh)
 
@@ -103,12 +107,12 @@ def main(output_file):
     print("Wrote output to %(output_file)s" % locals())
 
 
-def run_for_single_building(building, bpr, weather_data, usage_schedules, date, gv, locator, use_stochastic_occupancy,
+def run_for_single_building(building, bpr, weather_data, usage_schedules, date, locator, use_stochastic_occupancy,
                             use_dynamic_infiltration_calculation, resolution_outputs, loads_output,
-                            massflows_output, temperatures_output, format_output, region):
-    calc_thermal_loads(building, bpr, weather_data, usage_schedules, date, gv, locator, use_stochastic_occupancy,
+                            massflows_output, temperatures_output, format_output, config, region, write_detailed_output, debug):
+    calc_thermal_loads(building, bpr, weather_data, usage_schedules, date, locator, use_stochastic_occupancy,
                        use_dynamic_infiltration_calculation, resolution_outputs, loads_output, massflows_output,
-                       temperatures_output, format_output, region)
+                       temperatures_output, format_output, config, region, write_detailed_output, debug)
     df = pd.read_csv(locator.get_demand_results_file(building))
     return building, float(df['Qhs_sys_kWh'].sum()), df['Qcs_sys_kWh'].sum(), float(df['Qww_sys_kWh'].sum())
 

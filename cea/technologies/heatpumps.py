@@ -6,9 +6,10 @@ heatpumps
 from __future__ import division
 from math import floor, log, ceil
 import pandas as pd
-from cea.optimization.constants import HP_DELTA_T_COND, HP_DELTA_T_EVAP, HP_ETA_EX_COOL, HP_AUXRATIO, GHP_AUXRATIO, \
-    HP_MAX_T_COND, GHP_ETA_EX, GHP_CMAX_SIZE_TH, HP_MAX_SIZE
+from cea.optimization.constants import HP_DELTA_T_COND, HP_DELTA_T_EVAP, HP_ETA_EX, HP_ETA_EX_COOL, HP_AUXRATIO, \
+    GHP_AUXRATIO, HP_MAX_T_COND, GHP_ETA_EX, GHP_CMAX_SIZE_TH, HP_MAX_SIZE, HP_COP_MAX, HP_COP_MIN
 from cea.constants import HEAT_CAPACITY_OF_WATER_JPERKGK
+import numpy as np
 
 __author__ = "Thuy-An Nguyen"
 __copyright__ = "Copyright 2015, Architecture and Building Systems - ETH Zurich"
@@ -54,14 +55,19 @@ def HP_air_air(mdot_cp_WC, t_sup_K, t_re_K, tsource_K):
         # calculate evaporator temperature
         tevap_K = t_sup_K # approximate evaporator temperature with air-side supply temperature
         # calculate COP
-        COP = HP_ETA_EX_COOL * tevap_K / (tcond_K - tevap_K)
-        qcolddot_W = mdot_cp_WC * (t_re_K - t_sup_K)
+        if np.isclose(tcond_K, tevap_K):
+            print('condenser temperature is equal to evaporator temperature, COP set to the maximum')
+            COP = HP_COP_MAX
+        else:
+            COP = HP_ETA_EX_COOL * tevap_K / (tcond_K - tevap_K)
 
         # in order to work in the limits of the equation
-        if COP > 8.5:  # maximum achieved by 3for2 21.05.18
-            COP = 8.5
+        if COP > HP_COP_MAX:
+            COP = HP_COP_MAX
         elif COP < 1.0:
-            COP = 2.7  # COP of typical air-to-air unit
+            COP = HP_COP_MIN
+
+        qcolddot_W = mdot_cp_WC * (t_re_K - t_sup_K)
 
         wdot_W = qcolddot_W / COP
         E_req_W = wdot_W / HP_AUXRATIO     # compressor power [C. Montagud et al., 2014]_
@@ -126,7 +132,7 @@ def calc_Cop_GHP(ground_temp, mdot_kgpers, T_DH_sup_K, T_re_K):
 
     return wdot_el_W, qcolddot_W, qhotdot_missing_W, tsup2_K
 
-def GHP_op_cost(mdot_kgpers, t_sup_K, t_re_K, COP, lca):
+def GHP_op_cost(mdot_kgpers, t_sup_K, t_re_K, COP, lca, hour):
     """
     Operation cost of GSHP supplying DHN
 
@@ -158,9 +164,9 @@ def GHP_op_cost(mdot_kgpers, t_sup_K, t_re_K, COP, lca):
     qcoldot_W = q_therm_W * ( 1 - ( 1 / COP ) )
     E_GHP_req_W = q_therm_W / COP
 
-    C_GHP_el = E_GHP_req_W * lca.ELEC_PRICE
+    C_GHP_el_USD = E_GHP_req_W * lca.ELEC_PRICE[hour]
 
-    return C_GHP_el, E_GHP_req_W, qcoldot_W, q_therm_W
+    return C_GHP_el_USD, E_GHP_req_W, qcoldot_W, q_therm_W
 
 def GHP_Op_max(tsup_K, tground_K, nProbes):
     """
@@ -187,7 +193,7 @@ def GHP_Op_max(tsup_K, tground_K, nProbes):
 
     return qhotdot_Wh, COP
 
-def HPLake_op_cost(mdot_kgpers, tsup_K, tret_K, tlake, lca):
+def HPLake_op_cost(mdot_kgpers, tsup_K, tret_K, tlake, lca, hour):
     """
     For the operation of lake heat pump supplying DHN
 
@@ -219,11 +225,11 @@ def HPLake_op_cost(mdot_kgpers, tsup_K, tret_K, tlake, lca):
 
     Q_therm_W = mdot_kgpers * HEAT_CAPACITY_OF_WATER_JPERKGK * (tsup_K - tret_K)
 
-    C_HPL_el = E_HPLake_req_W * lca.ELEC_PRICE
+    C_HPL_el_USD = E_HPLake_req_W * lca.ELEC_PRICE[hour]
 
     Q_cold_primary_W = qcolddot_W
 
-    return C_HPL_el, E_HPLake_req_W, Q_cold_primary_W, Q_therm_W
+    return C_HPL_el_USD, E_HPLake_req_W, Q_cold_primary_W, Q_therm_W
 
 def HPLake_Op(mdot_kgpers, t_sup_K, t_re_K, t_lake_K):
     """
@@ -272,7 +278,7 @@ def HPLake_Op(mdot_kgpers, t_sup_K, t_re_K, t_lake_K):
 
     return E_HPLake_req_W, q_colddot_W
 
-def HPSew_op_cost(mdot_kgpers, t_sup_K, t_re_K, t_sup_sew_K, lca, Q_therm_Sew_W):
+def HPSew_op_cost(mdot_kgpers, t_sup_K, t_re_K, t_sup_sew_K, lca, Q_therm_Sew_W, hour):
     """
     Operation cost of sewage water HP supplying DHN
 
@@ -313,21 +319,21 @@ def HPSew_op_cost(mdot_kgpers, t_sup_K, t_re_K, t_sup_sew_K, lca, Q_therm_Sew_W)
         COP = HP_ETA_EX * (t_sup_K + HP_DELTA_T_COND) / ((t_sup_K + HP_DELTA_T_COND) - t_sup_sew_K)
 
     if t_sup_K == t_re_K:
-        q_therm = 0
-        qcoldot = 0
-        wdot = 0
-        C_HPSew_el_pure = 0
-        C_HPSew_per_kWh_th_pure = 0
+        q_therm_W = 0
+        qcoldot_W = 0
+        wdot_W = 0
+        C_HPSew_el_pure_USD = 0
+        C_HPSew_per_kWh_th_pure_USD = 0
     else:
-        q_therm = mdot_kgpers * HEAT_CAPACITY_OF_WATER_JPERKGK * (t_sup_K - t_re_K)
-        if q_therm > Q_therm_Sew_W:
-            q_therm = Q_therm_Sew_W
-        qcoldot = q_therm * (1 - (1 / COP))
-        wdot = q_therm / COP
-        C_HPSew_el_pure = wdot * lca.ELEC_PRICE
-        C_HPSew_per_kWh_th_pure = C_HPSew_el_pure / (q_therm)
+        q_therm_W = mdot_kgpers * HEAT_CAPACITY_OF_WATER_JPERKGK * (t_sup_K - t_re_K)
+        if q_therm_W > Q_therm_Sew_W:
+            q_therm_W = Q_therm_Sew_W
+        qcoldot_W = q_therm_W * (1 - (1 / COP))
+        wdot_W = q_therm_W / COP
+        C_HPSew_el_pure_USD = wdot_W * lca.ELEC_PRICE[hour]
+        C_HPSew_per_kWh_th_pure_USD = C_HPSew_el_pure_USD / (q_therm_W)
 
-    return C_HPSew_el_pure, C_HPSew_per_kWh_th_pure, qcoldot, q_therm, wdot
+    return C_HPSew_el_pure_USD, C_HPSew_per_kWh_th_pure_USD, qcoldot_W, q_therm_W, wdot_W
 
 
 def calc_Cinv_HP(HP_Size, locator, config, technology_type):
@@ -343,8 +349,9 @@ def calc_Cinv_HP(HP_Size, locator, config, technology_type):
     ..[C. Weber, 2008] C.Weber, Multi-objective design and optimization of district energy systems including
     polygeneration energy conversion technologies., PhD Thesis, EPFL
     """
-    Capex_a = 0
-    Opex_fixed = 0
+    Capex_a_HP_USD = 0
+    Opex_fixed_HP_USD = 0
+    Capex_HP_USD = 0
 
     if HP_Size > 0:
         HP_cost_data = pd.read_excel(locator.get_supply_systems(config.region), sheetname="HP")
@@ -372,8 +379,9 @@ def calc_Cinv_HP(HP_Size, locator, config, technology_type):
 
             InvC = Inv_a + Inv_b * (HP_Size) ** Inv_c + (Inv_d + Inv_e * HP_Size) * log(HP_Size)
 
-            Capex_a = InvC * (Inv_IR) * (1 + Inv_IR) ** Inv_LT / ((1 + Inv_IR) ** Inv_LT - 1)
-            Opex_fixed = Capex_a * Inv_OM
+            Capex_a_HP_USD = InvC * (Inv_IR) * (1 + Inv_IR) ** Inv_LT / ((1 + Inv_IR) ** Inv_LT - 1)
+            Opex_fixed_HP_USD = Capex_a_HP_USD * Inv_OM
+            Capex_HP_USD = InvC
 
         else:
             number_of_chillers = int(ceil(HP_Size / max_chiller_size))
@@ -394,11 +402,11 @@ def calc_Cinv_HP(HP_Size, locator, config, technology_type):
 
                 InvC = Inv_a + Inv_b * (Q_nom_each_chiller) ** Inv_c + (Inv_d + Inv_e * Q_nom_each_chiller) * log(Q_nom_each_chiller)
 
-                Capex_a = Capex_a + InvC * (Inv_IR) * (1 + Inv_IR) ** Inv_LT / ((1 + Inv_IR) ** Inv_LT - 1)
-                Opex_fixed = Opex_fixed + Capex_a * Inv_OM
+                Capex_a_HP_USD = Capex_a_HP_USD + InvC * (Inv_IR) * (1 + Inv_IR) ** Inv_LT / ((1 + Inv_IR) ** Inv_LT - 1)
+                Opex_fixed_HP_USD = Opex_fixed_HP_USD + Capex_a_HP_USD * Inv_OM
+                Capex_HP_USD = InvC
 
-
-    return Capex_a, Opex_fixed
+    return Capex_a_HP_USD, Opex_fixed_HP_USD, Capex_HP_USD
 
 
 def calc_Cinv_GHP(GHP_Size_W, locator, config, technology=0):
@@ -431,10 +439,10 @@ def calc_Cinv_GHP(GHP_Size_W, locator, config, technology=0):
     Inv_LT = GHP_cost_data.iloc[0]['LT_yr']
     Inv_OM = GHP_cost_data.iloc[0]['O&M_%'] / 100
 
-    InvC = Inv_a + Inv_b * (GHP_Size_W) ** Inv_c + (Inv_d + Inv_e * GHP_Size_W) * log(GHP_Size_W)
+    InvC_GHP = Inv_a + Inv_b * (GHP_Size_W) ** Inv_c + (Inv_d + Inv_e * GHP_Size_W) * log(GHP_Size_W)
 
-    Capex_a_GHP = InvC * (Inv_IR) * (1 + Inv_IR) ** Inv_LT / ((1 + Inv_IR) ** Inv_LT - 1)
-    Opex_fixed_GHP = Capex_a_GHP * Inv_OM
+    Capex_a_GHP_USD = InvC_GHP * (Inv_IR) * (1 + Inv_IR) ** Inv_LT / ((1 + Inv_IR) ** Inv_LT - 1)
+    Opex_fixed_GHP_USD = Capex_a_GHP_USD * Inv_OM
 
     BH_cost_data = pd.read_excel(locator.get_supply_systems(config.region), sheetname="BH")
     technology_code = list(set(BH_cost_data['code']))
@@ -455,14 +463,15 @@ def calc_Cinv_GHP(GHP_Size_W, locator, config, technology=0):
     Inv_LT = BH_cost_data.iloc[0]['LT_yr']
     Inv_OM = BH_cost_data.iloc[0]['O&M_%'] / 100
 
-    InvC = Inv_a + Inv_b * (GHP_Size_W) ** Inv_c + (Inv_d + Inv_e * GHP_Size_W) * log(GHP_Size_W)
+    InvC_BH = Inv_a + Inv_b * (GHP_Size_W) ** Inv_c + (Inv_d + Inv_e * GHP_Size_W) * log(GHP_Size_W)
 
-    Capex_a_BH = InvC * (Inv_IR) * (1 + Inv_IR) ** Inv_LT / ((1 + Inv_IR) ** Inv_LT - 1)
-    Opex_fixed_BH = Capex_a_BH * Inv_OM
+    Capex_a_BH_USD = InvC_BH * (Inv_IR) * (1 + Inv_IR) ** Inv_LT / ((1 + Inv_IR) ** Inv_LT - 1)
+    Opex_fixed_BH_USD = Capex_a_BH_USD * Inv_OM
 
-    Capex_a = Capex_a_BH + Capex_a_GHP
-    Opex_fixed = Opex_fixed_BH + Opex_fixed_GHP
+    Capex_a_GHP_total_USD = Capex_a_BH_USD + Capex_a_GHP_USD
+    Opex_fixed_GHP_total_USD = Opex_fixed_BH_USD + Opex_fixed_GHP_USD
+    Capex_GHP_total_USD = InvC_BH + InvC_GHP
 
-    return Capex_a, Opex_fixed
+    return Capex_a_GHP_total_USD, Opex_fixed_GHP_total_USD, Capex_GHP_total_USD
 
 

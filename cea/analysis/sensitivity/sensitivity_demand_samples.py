@@ -43,7 +43,7 @@ __email__ = "cea@arch.ethz.ch"
 __status__ = "Production"
 
 
-def create_demand_samples(locator, method='morris', num_samples=1000, variable_groups=('ENVELOPE',), sampler_parameters={}, region='CH'):
+def create_demand_samples(locator, method, num_samples, variable_groups, sampler_parameters, region):
     """
     Create the samples to simulate using the specified method (`method`), the sampling method parameter N
     (`num_samples`) and any additional sampling method-specific parameters specified in `sampler_parameters for each
@@ -55,8 +55,9 @@ def create_demand_samples(locator, method='morris', num_samples=1000, variable_g
                         generate", but in reality, for both methods, the actual number of samples is a multiple of
                         `num_samples`).
     :type num_samples: int
-    :param sampler_parameters: additional, sampler-specific parameters. For `method='morris'` these are: [grid_jump,
-                               num_levels], for `method='sobol'` these are: [calc_second_order]
+    :param sampler_parameters: additional, sampler-specific parameters.
+                               For `method='morris'` these are: [num_levels],
+                               for `method='sobol'` these are: [calc_second_order]
     :type sampler_parameters: dict of (str, _)
     :param variable_groups: list of names of groups of variables to analyse. Possible values are:
         'THERMAL', 'ARCHITECTURE', 'INDOOR_COMFORT', 'INTERNAL_LOADS'. This list links to the probability density
@@ -120,7 +121,6 @@ def main(config):
     method = config.sensitivity_demand.method
     num_samples = config.sensitivity_demand.num_samples
     calc_second_order = config.sensitivity_demand.calc_second_order
-    grid_jump = config.sensitivity_demand.grid_jump
     num_levels = config.sensitivity_demand.num_levels
     samples_folder = config.sensitivity_demand.samples_folder
     variable_groups = config.sensitivity_demand.variable_groups
@@ -132,14 +132,12 @@ def main(config):
     print("Running sensitivity-demand-samples with method = %s" % method)
     print("Running sensitivity-demand-samples with num-samples = %s" % num_samples)
     print("Running sensitivity-demand-samples with calc-second-order = %s" % calc_second_order)
-    print("Running sensitivity-demand-samples with grid-jump = %s" % grid_jump)
     print("Running sensitivity-demand-samples with num-levels = %s" % num_levels)
     print("Running sensitivity-demand-samples with samples-folder = %s" % samples_folder)
     print("Running sensitivity-demand-samples with variable-groups = %s" % variable_groups)
 
     sampler_parameters = {}
     if method == 'morris':
-        sampler_parameters['grid_jump'] = grid_jump
         sampler_parameters['num_levels'] = num_levels
     else:
         sampler_parameters['calc_second_order'] = calc_second_order

@@ -35,6 +35,14 @@ __maintainer__ = "Daren Thomas"
 __email__ = "cea@arch.ethz.ch"
 __status__ = "Production"
 
+__author__ = "Jimeno A. Fonseca"
+__copyright__ = "Copyright 2018, Architecture and Building Systems - ETH Zurich"
+__credits__ = ["Jimeno A. Fonseca"]
+__license__ = "MIT"
+__version__ = "2.8"
+__maintainer__ = "Daren Thomas"
+__email__ = "cea@arch.ethz.ch"
+__status__ = "Production"
 
 def plots_main(config):
     print(config.plots_scenario_comparisons.scenarios)
@@ -42,7 +50,7 @@ def plots_main(config):
         raise cea.ConfigError('Comparison plots require at least two scenarios to compare. See config.plots.scenarios.')
 
     # local variables
-    # TODO: We need to create the plots and integrate the case whne none generations/ individuals etc,
+    # TODO: We need to create the plots and integrate the case when none generations/ individuals etc,
     project = config.plots_scenario_comparisons.project
     scenario_baseline = config.plots_scenario_comparisons.base_scenario
     scenarios_names = [scenario_baseline] + config.plots_scenario_comparisons.scenarios

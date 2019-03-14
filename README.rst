@@ -16,17 +16,18 @@ allows to study the effects, trade-offs and synergies of urban design options, b
 
 * Click `here <mailto:cea@arch.ethz.ch>`__ to contact us
 
+
+.. attention:: We will end support of the ArcGIS interface by the 1st of May of 2019. This means that there will not be anymore
+               tutorials nor advice on how to use this interface. You could still use this interface at your own risk.
+               We invite all CEA users to get acquainted with the CEA Dashboard. The CEA dashboard is our new 100% open source user interface.
+               We will aim to create a first tutorial on how to use this interface by mid-april of 2019.
+
 Cite us:
 --------
 
-For V2.2:    |V2.2|
-
-For V0.4:    |V0.4|
+For V2.9.1 (stable):    |V2.9.1|
 
 
+.. |V2.9.1| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.1487867.svg
+   :target: https://doi.org/10.5281/zenodo.1487867
 
-.. |V2.2| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.556165.svg
-   :target: https://doi.org/10.5281/zenodo.556165
-   
-.. |V0.4| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.496194.svg
-   :target: https://doi.org/10.5281/zenodo.496194

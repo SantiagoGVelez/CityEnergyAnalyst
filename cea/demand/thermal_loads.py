@@ -5,6 +5,7 @@ Demand model of thermal loads
 from __future__ import division
 
 import numpy as np
+import pandas as pd
 
 from cea.demand import demand_writers
 from cea.demand import latent_loads
@@ -12,10 +13,14 @@ from cea.demand import occupancy_model, hourly_procedure_heating_cooling_system_
 from cea.demand import sensible_loads, electrical_loads, hotwater_loads, refrigeration_loads, datacenter_loads
 from cea.demand import ventilation_air_flows_detailed, control_heating_cooling_systems
 from cea.technologies import heatpumps
+from cea.demand.set_point_from_predefined_file import calc_set_point_from_predefined_file
 
-def calc_thermal_loads(building_name, bpr, weather_data, usage_schedules, date, gv, locator, use_stochastic_occupancy,
+from cea.utilities import reporting
+
+
+def calc_thermal_loads(building_name, bpr, weather_data, usage_schedules, date, locator, use_stochastic_occupancy,
                        use_dynamic_infiltration_calculation, resolution_outputs, loads_output, massflows_output,
-                       temperatures_output, format_output, region):
+                       temperatures_output, format_output, config, region, write_detailed_output, debug):
     """
     Calculate thermal loads of a single building with mechanical or natural ventilation.
     Calculation procedure follows the methodology of ISO 13790
@@ -64,9 +69,6 @@ def calc_thermal_loads(building_name, bpr, weather_data, usage_schedules, date, 
     :param date: the dates (hours) of the year (8760)
     :type date: pandas.tseries.index.DatetimeIndex
 
-    :param gv: global variables / context
-    :type gv: GlobalVariables
-
     :param locator:
     :param use_dynamic_infiltration_calculation:
 
@@ -109,7 +111,8 @@ def calc_thermal_loads(building_name, bpr, weather_data, usage_schedules, date, 
             tsd['Edata'] = tsd['E_cdata'] = np.zeros(8760)
 
         #CALCULATE HEATING AND COOLING DEMAND
-        tsd = calc_Qhs_Qcs(bpr, date, tsd, use_dynamic_infiltration_calculation, region) #end-use demand latent and sensible + ventilation
+        tsd = calc_set_points(bpr, date, tsd, building_name, config, locator)  # calculate the setpoints for every hour
+        tsd = calc_Qhs_Qcs(bpr, tsd, use_dynamic_infiltration_calculation, region)  #end-use demand latent and sensible + ventilation
         tsd = sensible_loads.calc_Qhs_Qcs_loss(bpr, tsd) # losses
         tsd = sensible_loads.calc_Qhs_sys_Qcs_sys(tsd) # system (incl. losses)
         tsd = sensible_loads.calc_temperatures_emission_systems(bpr, tsd) # calculate temperatures
@@ -129,7 +132,7 @@ def calc_thermal_loads(building_name, bpr, weather_data, usage_schedules, date, 
         if hotwater_loads.has_hot_water_technical_system(bpr):
             tsd = electrical_loads.calc_Eaux_fw(tsd, bpr, schedules)
             tsd = hotwater_loads.calc_Qww(bpr, tsd, schedules) # end-use
-            tsd = hotwater_loads.calc_Qww_sys(bpr, tsd, gv) # system (incl. losses)
+            tsd = hotwater_loads.calc_Qww_sys(bpr, tsd) # system (incl. losses)
             tsd = electrical_loads.calc_Eaux_ww(tsd, bpr) #calc auxiliary loads
             tsd = hotwater_loads.calc_Qwwf(bpr, tsd) #final
         else:
@@ -149,8 +152,8 @@ def calc_thermal_loads(building_name, bpr, weather_data, usage_schedules, date, 
     tsd = electrical_loads.calc_Ef(bpr, tsd)  # final (incl. self. generated)
 
     #WRITE SOLAR RESULTS
-    write_results(bpr, building_name, date, format_output, gv, loads_output, locator, massflows_output,
-                  resolution_outputs, temperatures_output, tsd)
+    write_results(bpr, building_name, date, format_output, loads_output, locator, massflows_output,
+                  resolution_outputs, temperatures_output, tsd, write_detailed_output, debug)
 
     return
 
@@ -162,8 +165,9 @@ def calc_QH_sys_QC_sys(tsd):
     return tsd
 
 
-def write_results(bpr, building_name, date, format_output, gv, loads_output, locator, massflows_output,
-                  resolution_outputs, temperatures_output, tsd):
+def write_results(bpr, building_name, date, format_output, loads_output, locator, massflows_output,
+                  resolution_outputs, temperatures_output, tsd, write_detailed_output, debug):
+
     if resolution_outputs == 'hourly':
         writer = demand_writers.HourlyDemandWriter(loads_output, massflows_output, temperatures_output)
     elif resolution_outputs == 'monthly':
@@ -176,8 +180,15 @@ def write_results(bpr, building_name, date, format_output, gv, loads_output, loc
         writer.results_to_hdf5(tsd, bpr, locator, date, building_name)
     else:
         raise Exception('error')
-    # write report & quick visualization
-    gv.report(tsd, locator.get_demand_results_folder(), building_name)
+
+    if write_detailed_output:
+        print('Writing detailed demand results of {} to .xls file.'.format(building_name))
+        reporting.full_report_to_xls(tsd, locator.get_demand_results_folder(), building_name)
+
+    if debug:
+        print('Creating instant plotly visualizations of demand variable time series.')
+        print('Behavior can be changed in cea.utilities.reporting code.')
+        reporting.quick_visualization_tsd(tsd, locator.get_demand_results_folder(), building_name)
 
 
 def calc_Qcs_sys(bpr, tsd):
@@ -312,17 +323,26 @@ def calc_Qhs_sys(bpr, tsd):
         raise Exception('check potential error in input database of LCA infrastructure / HEATING')
     return tsd
 
-
-def calc_Qhs_Qcs(bpr, date, tsd, use_dynamic_infiltration_calculation, region):
-    # get ventilation flows
-    ventilation_air_flows_simple.calc_m_ve_required(bpr, tsd, region)
-    ventilation_air_flows_simple.calc_m_ve_leakage_simple(bpr, tsd)
+def calc_set_points(bpr, date, tsd, building_name, config, locator):
     # get internal comfort properties
-    tsd = control_heating_cooling_systems.calc_simple_temp_control(tsd, bpr, date.dayofweek)
-    # initialize first previous time step
+    # predefined set points for every given hour can be used to calculate the demand profile for a building
+    # a config flag is used for this, it is present in the config.demand section
+    if config.demand.predefined_hourly_setpoints:
+        tsd = calc_set_point_from_predefined_file(tsd, bpr, date.dayofweek, building_name, locator)
+    else:
+        tsd = control_heating_cooling_systems.calc_simple_temp_control(tsd, bpr, date.dayofweek)
+
     t_prev = get_hours(bpr).next() - 1
     tsd['T_int'][t_prev] = tsd['T_ext'][t_prev]
     tsd['x_int'][t_prev] = latent_loads.convert_rh_to_moisture_content(tsd['rh_ext'][t_prev], tsd['T_ext'][t_prev])
+    return tsd
+
+
+def calc_Qhs_Qcs(bpr, tsd, use_dynamic_infiltration_calculation, region):
+    # get ventilation flows
+    ventilation_air_flows_simple.calc_m_ve_required(bpr, tsd, region)
+    ventilation_air_flows_simple.calc_m_ve_leakage_simple(bpr, tsd)
+
     # end-use demand calculation
     for t in get_hours(bpr):
 
